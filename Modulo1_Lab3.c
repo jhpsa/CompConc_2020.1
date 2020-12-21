@@ -53,13 +53,15 @@ int main(int argc, char *argv[]){
         return 2;
     }
     //preenche o vetor de entrada com os primeiros N valores dos termos do calculo de pi
+    int flag = 1;
     for(long long int i = 0; i<N; i++){
-        if(i%2==0){
-            vetor[i] = 4/(2*(i+1)-1);
+        if(flag){
+            vetor[i] = 4.0/(2*i+1);
         }
         else{
-            vetor[i] = -4/(2*(i+1)-1);
+            vetor[i] = -4.0/(2*i+1);
         }
+        flag = !flag;
     }
     
     //calculo sequencial do valor de pi
