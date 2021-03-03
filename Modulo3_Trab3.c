@@ -2,13 +2,15 @@
 #include <stdlib.h> 
 #include <pthread.h>
 #include <semaphore.h>
+#include <string.h>
+#include <time.h>
 
 #define NTHREADS 4 //numero de threads, a primeira para leitura do arquivo e escrita no buffer e as outras 3 para implementar as buscas
 
-#define M 5 //numero de blocos
-#define N 6 //tamanho de cada bloco
+int M; //numero de blocos
+int N; //tamanho de cada bloco
 
-char buffer[M*N*2]; //buffer compartilhado pelas threads
+char buffer[1000]; //buffer compartilhado pelas threads
 
 sem_t cond12, cond13, cond14, cond21, cond31, cond41, cond23, cond34; //semaforos para sincronizar a ordem de execucao das threads
 
@@ -102,7 +104,13 @@ void *t2 (void *threadid){
         sem_post(&cond21); //libera a thread 1 para ler o proximo bloco
     }
     
-    printf("Maior sequência de valores idênticos: %d %d %d\n", (pos_max+1)/2, tam_max, valor_max-48); //imprime o resultado das buscas
+    //imprime o resultado das buscas
+    if(valor_max=='\0'){
+      printf("Não há uma sequência de valores idênticos.\n");
+    }
+    else{
+      printf("Maior sequência de valores idênticos: %d %d %d\n", (pos_max+1)/2, tam_max, valor_max-48);
+    }
     
     sem_post(&cond23); //libera a thread 3 para imprimir o resultado dela
     
@@ -199,7 +207,48 @@ void *t4 (void *threadid){
 //funcao principal
 int main(int argc, char *argv[]) {
 
-  char entrada[] = "30 1 2 3 1 1 1 1 2 3 4 5 5 5 5 5 5 5 0 0 0 3 3 3 0 1 2 3 4 5 0"; //sequencia de numeros inteiros do arquivo
+  int tam_entrada;
+  char tipo_entrada;
+  printf("Escolha a quantidade de inteiros da sequência de entrada: ");
+  scanf("%d", &tam_entrada);
+  int count = 0;
+  int size = tam_entrada;
+  while(size>=10){
+    size /= 10;
+    count++;
+  }
+  char size_entrada[count+1];
+  sprintf(size_entrada, "%d", tam_entrada);
+  char entrada[tam_entrada*2+strlen(size_entrada)]; //sequencia de numeros inteiros do arquivo
+  for(int i = 0; i < strlen(size_entrada); i++){
+    entrada[i] = size_entrada[i];
+  }
+  printf("Deseja digitar a sequência de inteiros da entrada? (S/N): ");
+  scanf("%s", &tipo_entrada);
+  srand(time(NULL));
+  char entrada0[tam_entrada];
+  if(tipo_entrada=='S' || tipo_entrada=='s'){
+    for(int i = strlen(size_entrada); i < tam_entrada*2+strlen(size_entrada); i+=2){
+      entrada[i] = ' ';
+      printf("Digite um inteiro (entre 0 e 5) para a sequência: ");
+      scanf("%s", &entrada[i+1]);
+    }
+  }
+  else{
+    for(int i = strlen(size_entrada); i < tam_entrada*2+strlen(size_entrada); i+=2){
+      entrada[i] = ' ';
+      int a = rand();
+      while(a>=6){
+        a-=6;
+      }
+      entrada[i+1] = a + '0';
+    }
+  }
+  
+  printf("Digite o número de blocos em que a entrada do arquivo deve ser dividida: ");
+  scanf("%d", &M);
+  N = tam_entrada / M;
+  
   FILE *arq;
   arq = fopen("arquivo.txt", "w"); //cria um arquivo e abre ele para ser escrito
   fwrite(entrada, 1, sizeof(entrada), arq); //escreve a entrada no arquivo
