@@ -5,6 +5,19 @@
 #include <string.h>
 #include <time.h>
 
+#ifndef _CLOCK_TIMER_H
+#define _CLOCK_TIMER_H
+
+#include <sys/time.h>
+#define BILLION 1000000000L
+
+#define GET_TIME(now) { \
+   struct timespec time; \
+   clock_gettime(CLOCK_MONOTONIC, &time); \
+   now = time.tv_sec + time.tv_nsec/1000000000.0; \
+}
+#endif
+
 #define NTHREADS 4 //numero de threads, a primeira para leitura do arquivo e escrita no buffer e as outras 3 para implementar as buscas
 
 int M; //numero de blocos
@@ -207,6 +220,11 @@ void *t4 (void *threadid){
 //funcao principal
 int main(int argc, char *argv[]) {
 
+  //variaveis para medicao de tempo
+  double ini, fim;
+  double t_seq, t_conc;
+
+  //pegando os inputs do usuario
   int tam_entrada;
   char tipo_entrada;
   printf("Escolha a quantidade de inteiros da sequência de entrada: ");
@@ -253,7 +271,103 @@ int main(int argc, char *argv[]) {
   arq = fopen("arquivo.txt", "w"); //cria um arquivo e abre ele para ser escrito
   fwrite(entrada, 1, sizeof(entrada), arq); //escreve a entrada no arquivo
   fclose(arq); //fecha o arquivo
+  
+  GET_TIME(ini);
+  //programa sequencial
+  FILE *arq0;
+  arq0 = fopen("arquivo.txt", "r");
+  
+  double tam = M*N;
+  int cont = 0;
+  while(tam>=10){
+    tam /= 10;
+    cont++;
+  }
+  
+  char buffer0[M*N*2];
+  char buffer00[M*N*2];
+  
+  int pos = M*N*2;
+  int pos_max = 0;
+  int tam_seq = 0;
+  int tam_max = 0;
+  char valor = '\0';
+  char valor_max = '\0';
+  
+  int iguais = 1;
+  int qtdd = 0;
+  
+  int sequencias = 0;
+  int qtdd0 = 0;
+  
+  fread(buffer0, cont + 1, 1, arq0);
+  
+  for(int m = 0; m < M; m++){
+    fread(buffer0, 1, N * 2, arq0);
+    
+    for(int i = 0; i < N * 2; i++){
+      buffer00[i + m * N * 2] = buffer0[i];
+    }
+    for(int i = 1; i < N * 2; i+=2){
+      if(buffer00[i + m * N * 2]==buffer00[i + m * N * 2 - 2]){
+        if(buffer00[i + m * N * 2]!=valor){
+          if(tam_seq > tam_max){
+            pos_max = pos;
+            pos = M*N*2;
+            tam_max = tam_seq;
+            tam_seq = 1;
+            valor_max = valor;
+            valor = '\0';
+          }
+          pos = i + m * N * 2 - 2;
+          valor = buffer00[i + m * N * 2];
+          tam_seq = 1;
+        }
+        if(i + m * N * 2 < pos){
+          pos = i + m * N * 2 - 2;
+        }
+        tam_seq++;
+      }
+      
+      if(buffer00[i + m * N * 2]==buffer00[i + m * N * 2 - 2]){
+        iguais++;
+      }
+      else{
+        int count = 0;
+        while(iguais>=3){
+          iguais -= 3;
+          count++;
+        }
+        qtdd += count;
+        iguais = 1;
+      }
+      
+      if(buffer00[i + m * N * 2]-1==buffer00[i + m * N * 2 - 2]){
+        sequencias++;
+        if(sequencias==5){
+          qtdd0++;
+        }
+      }
+      else{
+        sequencias = 0;
+      }
+    }
+    if(tam_seq > tam_max){
+      pos_max = pos;
+      tam_max = tam_seq;
+      valor_max = valor;
+    } 
+  }
+  
+  fclose(arq0);
+  
+  GET_TIME(fim);
+  t_seq = fim-ini;
+  //printf("Tempo sequencial: %lf\n", t_seq);
 
+
+  GET_TIME(ini);
+  //programa concorrente
   pthread_t tid[NTHREADS];
   int *id[4], t;
 
@@ -286,6 +400,12 @@ int main(int argc, char *argv[]) {
          printf("--ERRO: pthread_join() \n"); exit(-1); 
     } 
     free(id[t]);
-  } 
+  }
+  GET_TIME(fim);
+  t_conc = fim-ini;
+  //printf("Tempo concorrente: %lf\n", t_conc);
+  
+  //printf("Ganho de desempenho: %lf\n", t_seq/t_conc);
+   
   pthread_exit(NULL);
 }
